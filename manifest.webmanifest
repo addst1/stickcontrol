@@ -1,13 +1,13 @@
 {
-  "name": "Mob Control: StarCraft",
-  "short_name": "SC Mob",
-  "description": "스타크래프트 모티브 모브 컨트롤 스타일 게임",
+  "name": "Stickman Count",
+  "short_name": "StickCount",
+  "description": "스틱맨 군중 러너 (Count Masters 스타일)",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0a0e18",
-  "theme_color": "#0a0e18",
+  "background_color": "#69b7ff",
+  "theme_color": "#69b7ff",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
