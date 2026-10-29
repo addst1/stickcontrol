@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Mob Control: StarCraft</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b1220">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SC Mob">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+*{box-sizing:border-box}
+:root{--ac:#5fb0ff;--acd:#2a6fc0}
+body[data-theme=protoss]{--ac:#ffd24a;--acd:#b8871a}
+body[data-theme=zerg]{--ac:#e066ff;--acd:#8f2ab0}
+html,body{margin:0;height:100%;background:#05070d;overflow:hidden;overscroll-behavior:none;touch-action:none;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
+  font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:#e8eef8}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;border:0}
+#stage{position:absolute;left:50%;top:0;height:100%;width:min(100vw,56.25vh);transform:translateX(-50%);overflow:hidden;background:#0b1220}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* 공통: 모서리를 깎은 SF 패널 */
+.cut{clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+.cut-s{clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)}
+
+/* 상단 바 (미네랄 / 베스핀 / 미션 시간) */
+#topbar{position:absolute;left:0;right:0;top:0;height:calc(56px + env(safe-area-inset-top));padding:calc(7px + env(safe-area-inset-top)) 12px 0 10px;z-index:4;pointer-events:none;
+  display:flex;align-items:flex-start;gap:9px;background:linear-gradient(rgba(7,12,22,.94),rgba(7,12,22,.78));
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 14px),calc(100% - 16px) 100%,16px 100%,0 calc(100% - 14px))}
+#topbar::after{content:"";position:absolute;left:16px;right:16px;bottom:0;height:2px;background:linear-gradient(90deg,transparent,var(--ac),transparent);opacity:.9}
+#hIcon{display:block;width:34px;height:34px;color:var(--ac);filter:drop-shadow(0 0 5px var(--ac))}
+#hIcon svg{width:100%;height:100%;display:block}
+.tt{flex:1;min-width:0}
+#hTitle{font-size:11px;font-weight:800;letter-spacing:.25px;color:#dce8f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+#hRes{font-size:11.5px;font-weight:700;letter-spacing:.4px;color:#8fa6c0;margin-top:3px;white-space:nowrap}
+#hRes b{color:#6dff8a;font-weight:900}
+body[data-theme=zerg] #hRes b{color:#ff9af0}
+.tm{text-align:right;margin-top:1px}
+#hTimeL{font-size:9.5px;font-weight:700;letter-spacing:.5px;color:#8fa6c0}
+#hTimeV{font-size:16px;font-weight:900;letter-spacing:1px;color:#dce8f6;font-variant-numeric:tabular-nums}
+body[data-theme=zerg] #hTimeL,body[data-theme=zerg] #hTimeV{color:#e9a8ff}
+
+/* 게임 HUD */
+#hud{position:absolute;inset:0;pointer-events:none;display:none}
+#hud.on{display:block}
+#btnPause{position:absolute;top:calc(64px + env(safe-area-inset-top));right:10px;width:42px;height:34px;pointer-events:auto;
+  background:var(--ac);padding:2px}
+#btnPause span{display:flex;width:100%;height:100%;align-items:center;justify-content:center;font-size:13px;font-weight:900;background:linear-gradient(#18274a,#0b1228)}
+#hVer{position:absolute;left:8px;bottom:calc(6px + env(safe-area-inset-bottom));font-size:11px;opacity:.75;text-shadow:0 1px 2px #000;letter-spacing:.5px}
+#hint{position:absolute;left:0;right:0;bottom:16%;text-align:center;font-size:21px;font-weight:900;text-shadow:0 3px 0 rgba(0,0,0,.55);display:none;animation:pulse 1.2s infinite;letter-spacing:1px}
+#hint.on{display:block}
+@keyframes pulse{50%{transform:scale(1.08);opacity:.75}}
+#bars{position:absolute;inset:0;pointer-events:none;z-index:3}
+.hpbar{position:absolute;left:0;top:0;width:84px;height:16px;background:rgba(0,0,0,.65);border:2px solid var(--ac);overflow:hidden;will-change:transform;
+  clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%)}
+.hpbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(#ff8a7a,#d81f2f)}
+.hpbar b{position:absolute;inset:0;text-align:center;font-size:11px;line-height:12px;font-weight:900;text-shadow:0 1px 1px #000;letter-spacing:.5px}
+.hpbar.tower{width:116px;height:19px}.hpbar.tower b{line-height:15px;font-size:13px}
+
+/* 오버레이 공통 */
+.ov{position:absolute;inset:0;display:none;z-index:5}
+.ov.on{display:flex}
+.big{display:block;width:100%;padding:13px 10px;border:0;font-size:21px;font-weight:900;letter-spacing:2px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.45);
+  background:linear-gradient(#ffb43a,#c76a06);box-shadow:inset 0 0 0 2px #ffe3a0;clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+.big:active{filter:brightness(.85)}
+.big.alt{background:linear-gradient(#3b78d8,#1c3f8a);box-shadow:inset 0 0 0 2px #a9c8ff;font-size:16px;padding:10px}
+
+/* 메인 메뉴 */
+#menu{flex-direction:column;justify-content:space-between;pointer-events:none}
+#menu>*{pointer-events:auto}
+.mtop{padding:calc(70px + env(safe-area-inset-top)) 14px 0;text-align:center}
+.logo{font-weight:900;line-height:1;text-shadow:0 3px 0 rgba(0,0,0,.55)}
+.logo small{display:block;font-size:15px;letter-spacing:6px;color:#ffd24a}
+.logo b{display:block;font-size:35px;letter-spacing:3px;font-style:italic;background:linear-gradient(#ffffff,#8fc4ff 60%,#3d7fe0);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 rgba(0,0,30,.6))}
+.mpanel{background:linear-gradient(rgba(10,16,34,.9),rgba(6,10,24,.96));border-top:2px solid var(--ac);padding:10px 10px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;
+  clip-path:polygon(0 0,calc(50% - 60px) 0,calc(50% - 46px) 8px,calc(50% + 46px) 8px,calc(50% + 60px) 0,100% 0,100% 100%,0 100%)}
+.mlv{text-align:center;font-weight:900;font-size:13px;color:var(--ac);letter-spacing:3px;margin-top:4px}
+#cards{display:flex;flex-direction:column;gap:7px}
+.card{--bc:#3d8bff;position:relative;padding:2px;background:var(--bc)}
+.card.marine{--bc:#3d8bff}.card.dragoon{--bc:#d9ae2c}.card.hydra{--bc:#b266e0}
+.card.sel{--bc:#ffffff}
+.card .cin{display:flex;align-items:center;gap:9px;padding:7px 8px}
+.card.marine .cin{background:linear-gradient(#173272,#0d1d48)}
+.card.dragoon .cin{background:linear-gradient(#54421a,#2f2410)}
+.card.hydra .cin{background:linear-gradient(#45235f,#26113a)}
+.card.sel::after{content:"출전 중";position:absolute;right:16px;top:3px;background:#ffd24a;color:#241a00;font-size:10px;font-weight:900;padding:1px 8px;letter-spacing:.5px}
+.ic{width:64px;height:68px;flex:none;background-size:cover;background-position:center;border:2px solid rgba(255,255,255,.35);box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
+.inf{flex:1;min-width:0}
+.nm{font-weight:900;font-size:15px;letter-spacing:.3px}.nm small{font-size:10px;opacity:.7;margin-left:5px;font-weight:700;letter-spacing:.5px}
+.st{font-size:11px;opacity:.92;margin-top:2px}.ds{font-size:10px;opacity:.65;margin-top:1px}
+.upb{flex:none;width:74px;padding:7px 2px;background:linear-gradient(#58d870,#1b8f38);box-shadow:inset 0 0 0 2px #d4ffdc;font-weight:900;font-size:12px;line-height:1.3;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.upb::before{content:"▲ ";color:#ffe45a}
+.upb span{font-size:11px;color:#eaffee}
+.upb:disabled,.ups button:disabled{filter:grayscale(1) brightness(.55);cursor:default}
+.ups{display:flex;gap:7px}
+.ups button{flex:1;padding:9px 4px;background:linear-gradient(#2f4a92,#18285a);box-shadow:inset 0 0 0 2px #8fb0ff;font-size:12px;font-weight:900;line-height:1.35}
+.ups button span{display:block;font-size:11px;color:#8bf3a0}
+#mVer{text-align:center;font-size:10px;opacity:.5;letter-spacing:1px}
+
+/* 일시정지 / 결과 */
+#pause,#result{align-items:center;justify-content:center;background:rgba(3,6,16,.66)}
+.panel{width:min(80%,310px);padding:2px;background:var(--ac)}
+.pin{padding:20px 16px;background:linear-gradient(#17285a,#0a1130);text-align:center;display:flex;flex-direction:column;gap:12px}
+.panel h2{margin:0;font-size:29px;font-weight:900;color:var(--ac);letter-spacing:3px;text-shadow:0 3px 0 rgba(0,0,0,.5)}
+.panel h2.win{color:#7dff9a}.panel h2.lose{color:#ff7a7a}
+.panel p{margin:0;font-size:15px;line-height:1.75}
+.panel small{opacity:.75;font-size:12px}
+#rotate{position:fixed;inset:0;z-index:99;background:#0b1020;display:none;align-items:center;justify-content:center;text-align:center;font-size:20px;font-weight:900;color:#ffd24a;padding:20px;line-height:1.6}
+</style>
+</head>
+<body data-theme="terran">
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <div id="bars"></div>
+
+  <div id="topbar">
+    <span id="hIcon"></span>
+    <div class="tt"><div id="hTitle"></div><div id="hRes"></div></div>
+    <div class="tm"><div id="hTimeL"></div><div id="hTimeV">00:00</div></div>
+  </div>
+
+  <div id="hud">
+    <button id="btnPause" class="cut-s"><span class="cut-s">❚❚</span></button>
+    <div id="hint">← 좌우로 드래그해서 조준 →</div>
+    <div id="hVer"></div>
+  </div>
+
+  <div id="menu" class="ov on">
+    <div class="mtop"><div class="logo"><small>MOB CONTROL:</small><b>STARCRAFT</b></div></div>
+    <div class="mpanel">
+      <div class="mlv">— LEVEL <span id="mLv">1</span> —</div>
+      <div id="cards"></div>
+      <div class="ups"><button id="upInc" class="cut-s"></button><button id="upBase" class="cut-s"></button></div>
+      <button id="btnPlay" class="big">출격</button>
+      <div id="mVer"></div>
+    </div>
+  </div>
+
+  <div id="pause" class="ov"><div class="panel cut"><div class="pin cut">
+    <h2 id="pTitle">일시정지</h2><p id="pDesc"></p>
+    <button class="big" id="btnResume">계속하기</button>
+    <button class="big alt" id="btnToMenu">메인으로 (진행 저장됨)</button>
+  </div></div></div>
+
+  <div id="result" class="ov"><div class="panel cut"><div class="pin cut">
+    <h2 id="rTitle"></h2><p id="rDesc"></p>
+    <button class="big" id="btnNext">다음</button>
+    <button class="big alt" id="btnResMenu">부대 편성</button>
+  </div></div></div>
+</div>
+<div id="rotate">📱 화면을 세로로 돌려주세요<br><small style="font-weight:500;color:#aab">(진행 상황은 저장되어 있습니다)</small></div>
+<script src="game.js"></script>
+</body>
+</html>
