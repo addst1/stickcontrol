@@ -1,5 +1,5 @@
 // Service Worker - 오프라인 지원 (네트워크 우선, 실패 시 캐시)
-const VERSION = '0.4.0';
+const VERSION = '0.4.1';
 const CACHE = 'starcontrol-v' + VERSION;
 const ASSETS = ['./', './index.html', './game.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
